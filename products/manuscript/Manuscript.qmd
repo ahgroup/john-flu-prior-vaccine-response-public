@@ -1,0 +1,267 @@
+---
+title: "Associations between prior influenza vaccine type and subsequent vaccine-induced antibody responses"
+author: " "
+format: docx
+bibliography: ../../products/manuscript/john-immune-priming.bib
+csl: ../../products/manuscript/ieee.csl
+nocite: "@*"
+execute: 
+  echo: false
+  message: false
+  warning: false
+lang: en-US
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, echo=FALSE, message=FALSE}
+# load a few R packages
+library(here)
+library(knitr)
+
+# function for table fits
+suppressPackageStartupMessages({
+	library(flextable)
+})
+
+fit_flextable_to_page <- function(tbl, page_width = 6.5){
+	
+	ft_out <- tbl |> flextable::autofit()
+	
+	ft_width <- (dim(ft_out)$widths * page_width) /
+		(flextable::flextable_dim(ft_out)$widths)
+	
+	ft_out <- flextable::width(ft_out, width = ft_width)
+	
+	return(ft_out)
+}
+
+# model estimates 
+est_overall <- readRDS(here::here("results/models/primary/overall/estimates-primary-overall.rds"))
+est_subtype <- readRDS(here::here("results/models/primary/subtype/estimates-primary-subtype.rds"))
+
+# format regression estimates and 95% CIs
+fmt_est <- function(vaccine, term, subtype = NULL) {
+
+  if (is.null(subtype)) {
+    dat <- est_overall
+  } else {
+    dat <- est_subtype |>
+      dplyr::filter(.data$subtype == .env$subtype)
+  }
+
+  est <- dat |>
+    dplyr::filter(
+      .data$vaccine == .env$vaccine,
+      .data$term == .env$term
+    )
+
+  if (nrow(est) != 1) {
+    stop(
+      "Expected one estimate for ",
+      vaccine, ", ", term,
+      if (!is.null(subtype)) paste0(", ", subtype)
+    )
+  }
+
+  sprintf(
+    "%.2f; 95%% CI: %.2f-%.2f",
+    est$estimate_exp,
+    est$conf.low_exp,
+    est$conf.high_exp
+  )
+}
+
+# number of participants
+data <- readRDS(here::here("data/final/dat_final.rds"))
+dat_n <- data |>
+  dplyr::distinct(subject_id, .keep_all = TRUE) |>
+  dplyr::count(study_site, name = "n") |>
+  dplyr::bind_rows(
+    data |>
+      dplyr::distinct(subject_id) |>
+      dplyr::summarise(study_site = "Overall", n = dplyr::n())
+  )
+# number of vaccinations
+dat_n_vac <- data |>
+  dplyr::summarise(n = dplyr::n_distinct(person_year_id))
+```
+
+**Authors**
+
+-   Murphy John$^{1,2,\land}$ (ORCID: 0009-0009-9591-1117);
+-   Young M. Yoo$^{1,3}$ (0000-0002-0845-2293);
+-   Sarah Cobey$^{4}$ (0000-0001-5298-8979);
+-   Ye Shen$^{1,2}$ (0000-0002-6662-0048);
+-   Andrea Sant$^{5}$ (0000-0001-7176-7426);
+-   Ted M. Ross$^{6,7,8}$ (0000-0003-1947-7469);
+-   Andreas Handel$^{1, 2, \land}$ (0000-0002-4622-1146)
+
+**Author affiliations**
+
+1.  Department of Epidemiology and Biostatistics, University of Georgia, Athens, GA, USA.
+2.  Center for the Ecology of Infectious Diseases, University of Georgia, Athens, GA, USA.
+3.  Influenza Division, Centers for Disease Control and Prevention, Atlanta, Georgia, USA.
+4.  Department of Ecology and Evolution, University of Chicago, Chicago, IL, USA.
+5.  David H. Smith Center for Vaccine Biology and Immunology, Department of Microbiology and Immunology, University of Rochester, Rochester, NY, USA.
+6.  Florida Research and Innovation Center, Cleveland Clinic, Port Saint Lucie, Florida, USA.
+7.  Center for Vaccines and Immunology, University of Georgia, Athens, GA, United States.
+8.  Department of Infection Biology, Cleveland Clinic Research, Cleveland, OH, United States.
+
+
+$\land$ Co-corresponding authors: MJ (murphy.john\@uga.edu), AH (ahandel\@uga.edu)
+
+\pagebreak
+
+# Abstract
+
+Background: Annual influenza vaccination is recommended in many places, but antibody responses can vary depending on vaccine type, prior immunity, and vaccination history. The effects of repeated vaccination have been studied, but less is known about how the specific vaccine formulations received across consecutive seasons are associated with subsequent antibody responses. 
+
+Methods: We analyzed data from two human influenza vaccine studies to investigate associations between prior-season vaccine type and subsequent hemagglutination inhibition (HAI) antibody responses. We fit multivariable linear regression models with log$_2$-transformed HAI fold-change as the outcome, separately for each current-season vaccine type. We used overall models to estimate associations across influenza subtypes and subtype-specific models to examine variation in these associations. All models adjusted for pre-vaccination HAI titers, age, and other covariates. Sensitivity analyses evaluated the influence of combining data from the two studies and replacing multiple imputation with fixed substitution for titers below the assay limit of detection.
+
+Results: Associations between prior-season vaccine type and subsequent antibody responses varied across current-season vaccines. Subtype-specific analyses revealed additional variation that was not apparent in the overall models. Among recipients of a cell-based inactivated vaccine (Flucelvax), prior recombinant (FluBlok) vaccination was associated with lower fold-change responses overall (adjusted fold-change ratio: `r fmt_est("Flucelvax", "prev_vaccine_abbrFB")`), with the strongest association observed for B-Victoria (`r fmt_est("Flucelvax", "prev_vaccine_abbrFB", subtype = "B-Victoria")`). Among the same recipients, estimates for prior Flucelvax vaccination differed in direction across subtypes, suggesting higher fold-change responses for H3N2 but lower responses for both influenza B subtypes relative to prior Fluzone-SD vaccination. Among recipients of an adjuvanted vaccine (FLUAD), prior FLUAD vaccination was associated with a higher estimated H3N2 fold-change response than prior high-dose inactivated (Fluzone-HD) vaccination (`r fmt_est("FLUAD", "prev_vaccine_abbrFA", subtype = "H3N2")`), whereas the B-Victoria estimate was near one. No prior-season vaccine type was consistently associated with higher or lower responses across all current-season vaccines and influenza subtypes. Sensitivity analyses suggested that neither combining data from the two studies nor the method used to handle censored titers materially influenced the results.
+
+Conclusions: Our findings highlight the importance of considering the specific vaccine formulations received across consecutive seasons, rather than prior vaccination status alone, when studying repeated influenza vaccination. The associations observed in this study support future studies designed specifically to evaluate how combinations of vaccine types across consecutive seasons influence immune responses.
+
+\pagebreak
+
+# Introduction
+
+Influenza vaccination remains the primary strategy for reducing morbidity and mortality associated with seasonal influenza. Available products range from standard-dose inactivated formulations to enhanced options, including high-dose inactivated, adjuvanted, and recombinant vaccines, as well as live-attenuated influenza virus (LAIV) vaccines [@jones2024]. Products also differ by manufacturing platform, with cell-based production potentially reducing the negative effects of egg adaptation on vaccine efficacy [@zost2017; @liang2022; @ortizdelejarazu-leonardo2021]. The U.S. Centers for Disease Control and Prevention (CDC) recommends annual vaccination for individuals aged six months and older without contraindications [@Grohskopf2025], preferring high-dose inactivated, recombinant, or adjuvanted vaccines for adults 65 years and older. Absent age- and health-specific recommendations, no formal preferences exist for one vaccine product over another [@Grohskopf2025].
+
+As the range of available influenza vaccine formulations has expanded, understanding how the products received in previous seasons relate to subsequent immune responses has become increasingly important. Previous studies have demonstrated differences in immunogenicity across formulations, with certain enhanced products, including high-dose inactivated, adjuvanted, and recombinant vaccines, eliciting higher antibody responses than standard-dose inactivated vaccines, particularly in older adults [@cowling2020b; @gouma2019; @zhong2024; @BillingsEtAl2025]. However, whether these differences extend to the influence of prior vaccine formulation on responses in subsequent seasons remains unclear.
+
+Repeated annual vaccination has also been associated with differences in antibody responses. Individuals vaccinated in the preceding season generally exhibit lower antibody fold-rise responses than those without prior vaccination [@sung2024; @cowling2024a], and fold-rise responses decline with increasing numbers of prior vaccinations [@sullivan2025; @sung2024]. Importantly, repeated vaccination remains more protective than forgoing vaccination entirely [@cowling2024a]. A study in children found that the association between prior-season vaccination and subsequent vaccine effectiveness varied by current vaccine type and influenza subtype, with prior vaccination associated with higher effectiveness of live-attenuated influenza vaccine against H3N2, but not H1N1 [@McLeanEtAl2018]. Whether associations with prior vaccination also vary according to the specific formulation received in the preceding season, particularly for antibody responses, remains unclear.
+
+Several differences in vaccine composition and immunological activity could plausibly influence the development and subsequent recall of immune memory. For example, recombinant HA vaccines contain purified hemagglutinin without the additional influenza viral proteins present in some other formulations, potentially influencing the specificity of immune responses [@richards2012b; @koroleva2020]. Inactivated split-virus vaccines may retain residual viral RNA and other viral components capable of stimulating innate immune responses [@shingai2021; @rockman2014], whereas adjuvanted vaccines are designed to enhance immune activation [@ohagan2012]. LAIV generally elicits lower systemic antibody responses than inactivated vaccines [@tong2024; @cao2014], though it may induce stronger mucosal and T-cell responses [@hoft2017; @cao2014]. These differences could influence the magnitude or quality of immune memory and its subsequent recall, potentially affecting antibody responses to vaccination in subsequent seasons.
+
+Hemagglutination inhibition (HAI) titers are an established serological correlate of protection against influenza [@coudeville2010b; @black2011] and are widely used to assess vaccine-induced antibody responses in immunogenicity studies. One prior study examined vaccine sequencing effects on neuraminidase inhibition (NAI) responses in older adults and found that receiving an adjuvanted vaccine in the second year elicited superior fold-rise and seroconversion rates regardless of the first-year vaccine [@daulagala2025]. However, associations between prior-season vaccine formulation and subsequent HAI antibody responses remain poorly characterized. To address this gap, we pooled data from two independent influenza vaccine studies, an open cohort and a randomized clinical trial, to evaluate associations between prior-season vaccine formulation and HAI fold-change responses to vaccination in the subsequent season across a broad age range, multiple vaccine sequences, and influenza subtypes.
+
+# Methods
+
+## Data
+
+We analyzed data from two previously conducted influenza vaccination studies: an open cohort and a randomized clinical trial [@nunez2017; @carlock2019; @moritzky2022; @gouma2019].
+
+The human influenza vaccine cohort (FluVac) enrolled participants across 12 influenza seasons from 2013-2014 through 2024-2025 at four study sites. Hereafter, influenza seasons are identified by their starting year (e.g., 2013 refers to the 2013-2014 season). The cohort primarily enrolled adults aged 18 years and older, with children aged 9-17 years also enrolled at the University of Georgia site. Observations were collected at sites in Pennsylvania (PA) and Florida (FL) during the 2013 through 2016 seasons. The study was re-established at the University of Georgia (UGA) in Athens, GA, during the 2016 season, with data collected through the 2024 season. Additional observations were collected at Cleveland Clinic Florida (CCF) during the 2023 and 2024 seasons. Participants received one of the annually approved influenza vaccines. The primary vaccines were Sanofi Pasteur's standard-dose egg-based inactivated vaccine (Fluzone-SD) and high-dose egg-based inactivated vaccine (Fluzone-HD), the latter available for adults 65 years and older. In some seasons, subcohorts received other vaccine types: intradermal standard-dose inactivated (Fluzone-Intradermal; 2013), live-attenuated (FluMist; 2018, 2022, 2023, 2024), recombinant (FluBlok; 2021, 2022, 2024), cell-based inactivated (Flucelvax; 2022, 2023, 2024), and MF59-adjuvanted inactivated (FLUAD; 2023, 2024). Serum samples were collected before vaccination and approximately 21 days (2013-2017 seasons) or 28 days (2018-2024 seasons) post-vaccination. HAI assays were performed on each sample against the homologous egg-based vaccine strains, as described previously [@berber2026a].
+
+The human influenza vaccine clinical trial (ClinicalTrials.gov, NCT03068949; URIV) enrolled healthy adults aged 18-51 years at the University of Rochester in Rochester, NY, across five seasons from 2015-2016 through 2019-2020. Participants were randomized to receive a single dose of Fluzone-SD, Fluzone-HD, FluBlok, or Flucelvax. Participants who re-enrolled in sequential years received the same vaccine type as in the preceding season. Serum samples were collected before vaccination and 28 days post-vaccination and HAI assays were performed against the homologous egg-based vaccine strains.
+
+For this analysis, we included participants from both studies who received vaccinations in consecutive years and for whom pre- and post-vaccination serum samples were available. Each observation represented a pair of consecutive seasonal vaccinations, with the antibody response measured following the second vaccination. Participants could contribute multiple observations if they had more than one eligible pair of consecutive vaccination seasons. We excluded prior/current vaccine combinations with fewer than five observations across the study population. We additionally excluded vaccine-sequence-subtype groups in which more than 50% of the available pre- and post-vaccination HAI measurements were left-censored. These criteria were applied to both the overall and subtype-specific analyses to limit reliance on imputed values in sparsely observed or highly censored groups. Details of the excluded sequences and strata are provided in the Supplementary Material (SM).
+
+## Statistical analysis
+
+We calculated summary statistics to describe the study population and summarize observed HAI responses (see SM). Fold-change was defined as the ratio of post-vaccination to pre-vaccination HAI titer.
+
+Our motivating question was whether vaccine sequence influences antibody responses. In an ideal factorial study design, prior- and current-season vaccine types would be systematically represented across all combinations, allowing their individual effects and interaction to be estimated. The interaction would determine whether the effect of the current-season vaccine differs according to prior vaccination history, or equivalently, whether the effect of prior vaccination history differs according to the current-season vaccine. However, the available data did not provide sufficient representation of vaccine combinations to estimate these interactions reliably. Thus, our analysis does not directly estimate an overall effect of vaccine sequence. The available data allowed us to hold one component of the vaccine sequence constant and evaluate differences associated with the other. One approach would be to hold the prior-season vaccine constant and compare responses to different current-season vaccines. Because vaccine products differ in their ability to elicit immune responses [@cowling2020b; @gouma2019; @zhong2024; @BillingsEtAl2025; @tong2024; @cao2014; @hoft2017], such comparisons may reflect differences attributable to the current vaccine itself rather than prior vaccination history. We instead held the current-season vaccine constant and compared responses across prior-season vaccine types to evaluate associations with prior vaccination history among recipients of the same current-season vaccine. 
+
+We fit multivariable linear regression models with log$_2$-transformed HAI fold-change as the outcome, separately for each current-season vaccine type. The log$_2$ transformation was used to reflect the twofold dilution scale of HAI measurements and to model multiplicative changes in antibody titers on an additive scale. We first fit overall models that included influenza subtype as a categorical covariate to estimate associations between prior-season vaccine type and antibody responses across the available subtypes, assuming a common prior-vaccine association across subtypes. We then fit separate models for each influenza subtype (H1N1, H3N2, B-Yamagata, and B-Victoria) to characterize subtype-specific associations without imposing this assumption.  We did not include interactions between prior-season vaccine type and influenza subtype in the overall models because some vaccine-sequence-subtype groups had no eligible observations following the censoring exclusions, while others contained few observations, limiting the estimability and precision of interaction coefficients. The subtype-specific models were therefore used to explore variation in associations across influenza subtypes without formal testing for effect modification. 
+
+All models included log$_2$-transformed pre-vaccination HAI titer, prior-season vaccine type, and age as covariates. Age and log$_2$-transformed pre-vaccination HAI titers were min-max normalized within current-season vaccine for the overall models and within current-season vaccine and influenza subtype for the subtype-specific models. Study (FluVac or URIV) was included when observations from both studies were available. We adjusted for study rather than individual study site because several vaccine-sequence groups were sparsely represented across sites. We also considered vaccine strain (categorical), representing the specific influenza virus strain included in the current-season vaccine, and strain change, defined as whether the subtype-specific vaccine strain differed between the prior- and current-season vaccines. These variables were considered for inclusion when they varied within the corresponding dataset. When both variables were eligible for inclusion but could not be estimated jointly, strain change was retained. The general candidate model was specified as:
+
+$$
+\log_2(\mathrm{FC}_i) = \beta_0 + \beta_1\mathrm{NormLogPreTiter}_i+ \beta_2\mathrm{PriorVaccine}_i + \beta_3\mathrm{NormAge}_{i} + \gamma_1\mathrm{Subtype}_i + \delta_1\mathrm{Study}_i + \delta_2\mathrm{VaccineStrain}_i + \delta_3\mathrm{StrainChange}_i + \epsilon_i.
+$$
+The $\beta$ coefficients correspond to covariates included in all models, $\gamma_1$ represents the influenza subtype covariate included only in the overall models, and the $\delta$ coefficients correspond to additional covariates included according to their variation and estimability within each model. The specific additional covariates included in each model are summarized in the SM.
+
+For regression analyses, we treated HAI titers below the assay limit of detection (1:10) as left-censored observations. We performed multiple imputation of censored pre- and post-vaccination titers on the log$_2$ scale using conditional truncated-normal distributions [@lubin2004; @WilliamsonEtAl2010]. To account for dependence between pre- and post-vaccination titers [@carlock2019; @moritzky2022; @nunez2017] and differences in antibody responses across vaccine products and influenza subtypes, we estimated the joint distribution of log$_2$ pre- and post-vaccination titers separately for each current-season vaccine type and influenza subtype, using observations that were uncensored at both time points. Because titers below the detection limit were not directly observed, imputation relied on extrapolating the lower tail of the estimated distribution. Censored values were then imputed using a Gibbs sampling procedure based on the corresponding conditional distributions, with imputed values constrained to be at or below the assay limit of detection. We generated 40 imputed datasets and fit the corresponding overall and subtype-specific multivariable regression models to each completed dataset. Participant-clustered robust variance estimates were calculated to account for within-participant correlation across repeated vaccination observations and, in the overall models, measurements from multiple influenza subtypes. Regression coefficients and their corresponding cluster-robust variances were combined across imputations using Rubin's rules. Additional details of the imputation procedure, censoring, and observations per participant are provided in the SM.
+
+We performed model fitting and statistical inference on the log$_2$ scale. The quantities of interest were the coefficients for prior-season vaccine type ($\beta_2$). For ease of interpretation, we exponentiated these coefficients and their 95% confidence intervals and present them in the figures and text as $2^{\beta_2}$. These estimates represent adjusted ratios of fold-change responses for each prior-season vaccine type relative to the reference prior-season vaccine type. Fluzone-SD was the reference for all models except the FLUAD current-season vaccine models, for which Fluzone-HD was the reference. Values greater than 1 indicate a higher fold-change response, and values less than 1 indicate a lower fold-change response, relative to the reference group. Given the exploratory nature of the analysis, we present 95% confidence intervals without multiplicity adjustment. We additionally applied the Benjamini-Hochberg false discovery rate adjustment across all prior-season vaccine comparisons, separately for the overall and subtype-specific analyses. The resulting adjusted p-values are provided in the SM. We conducted two sensitivity analyses to evaluate the robustness of the overall and subtype-specific findings. First, we repeated the regression analyses using only FluVac data to assess the influence of combining observations from the two studies. Second, we replaced multiple imputation with fixed substitution of one-half the assay limit of detection (1:5) for censored HAI titers. Additional details are provided in the SM.
+
+We conducted all analyses in R [@rcoreteam2025a] in RStudio [@positteam2025a], with the pipeline implemented in targets [@williammichaellandau2021]. We used the packages here [@kirillmuller2025], renv [@kevinushey2026], labelled [@LarmarangeEtAl2026], and the tidyverse suite [@wickham2019a] for data management; ggplot2 [@hadleywickham2016], patchwork [@thomaslinpedersen2025], ggokabeito [@barrett2021a], and ggh4x [@brand2025] for figures; gtsummary [@danieldsjoberg2021] and flextable [@davidgohel2026] for tables; and knitr [@yihuixie2025] and Quarto [@jjallaire2026] for manuscript generation. Censored values were imputed using the truncnorm package [@MersmannEtAl2023], multivariable linear regression models were fit using the tidymodels framework [@maxkuhnTidymodelsCollectionPackages2020], and participant-clustered variance estimates were calculated using the HC1 correction implemented in the sandwich R package [@zeileis_sandwich_2020]. Data and code are archived on GitHub (https://github.com/ahgroup/john-flu-prior-vaccine-response-public) and Zenodo (**TODO**).
+
+
+# Results
+
+## Data Description
+
+Across the 2013-2024 influenza seasons, a total of `r dat_n$n[dat_n$study_site == "Overall"]` participants contributed `r dat_n_vac$n` observations of consecutive seasonal vaccination pairs with available pre- and post-vaccination data meeting the eligibility criteria for this analysis (@fig-study-design). Participants were enrolled at study sites in Stuart/Port St. Lucie, Florida (n=`r dat_n$n[dat_n$study_site == "FL"]`), Pittsburgh, Pennsylvania (n=`r dat_n$n[dat_n$study_site == "PA"]`), the University of Georgia (n=`r dat_n$n[dat_n$study_site == "UGA"]`), Cleveland Clinic Florida (n=`r dat_n$n[dat_n$study_site == "CCF"]`), and the University of Rochester (URIV, n=`r dat_n$n[dat_n$study_site == "URIV"]`). One participant contributed observations at both the University of Georgia and Cleveland Clinic Florida sites and was assigned to the former for participant-level summaries. Participant demographics are summarized by study site in the SM.
+
+```{r}
+#| label: fig-study-design
+#| fig-cap: |
+#|   [Overview of the influenza vaccine data used in this study. Vaccine products are indicated by color. Vaccine sequence was defined by the vaccine received in the preceding season (prior-season vaccine) and the vaccine received in the current season (current-season vaccine). The figure illustrates the prior/current vaccine combinations represented in the analysis, by study. (A) The multi-site human influenza vaccine cohort (FluVac) included participants from Stuart/Port St. Lucie, Florida; Pittsburgh, Pennsylvania; the University of Georgia; and Cleveland Clinic Florida. Participants were adults aged 18 years or older except at the University of Georgia, which also enrolled children aged 9-17 years. Participants received one of the available vaccine formulations in each season, with the range of products varying across seasons and study sites. Fluzone-HD and FLUAD were available for adults aged 65 years and older. (B) The University of Rochester influenza vaccine clinical trial (URIV) enrolled healthy adults aged 18-51 years. Participants received Fluzone-SD, Fluzone-HD, FluBlok, or Flucelvax. Those who re-enrolled in subsequent seasons received the same vaccine type as in the preceding season. Subtype-specific sample sizes varied due to measurement availability and the exclusion of highly censored vaccine-sequence-subtype groups. Detailed sample sizes are provided in the Supplementary Material. Figure created in BioRender. Handel, A. (2026) https://BioRender.com/s2emzzl.]{color="#FF2400"}
+#| echo: false
+#| results: asis
+knitr::include_graphics(
+	here::here("assets/study-designs.png")
+)
+```
+
+## Overall associations between prior-season vaccine type and antibody responses
+
+We first evaluated associations between prior-season vaccine type and subsequent HAI antibody fold-change responses using multivariable regression models fitted separately for each current-season vaccine, with influenza subtype included as a covariate (@fig-reg-forest-overall).
+
+Among recipients of Fluzone-SD, prior FluMist vaccination was associated with a higher estimated fold-change response relative to prior Fluzone-SD (`r fmt_est("Fluzone-SD", "prev_vaccine_abbrFM")`). The point estimate for prior Fluzone-Intradermal vaccination was below one (`r fmt_est("Fluzone-SD", "prev_vaccine_abbrID")`). Among recipients of Flucelvax, prior FluBlok vaccination was associated with a lower estimated fold-change response relative to prior Fluzone-SD (`r fmt_est("Flucelvax", "prev_vaccine_abbrFB")`), while the estimate for prior Flucelvax was also below one (`r fmt_est("Flucelvax", "prev_vaccine_abbrFV")`). Confidence intervals for all other prior-season vaccine comparisons included one. The overall models assumed common prior-vaccine associations across influenza subtypes, so we also examined these associations separately by subtype.
+
+```{r}
+#| label: fig-reg-forest-overall
+#| fig-cap: |
+#|   [Adjusted associations between prior-season vaccine type and HAI fold-change responses across available influenza subtypes, by current-season vaccine. Each panel represents a current-season vaccine, with prior-season vaccine types shown on the vertical axis. Points and horizontal lines represent adjusted fold-change ratios and their unadjusted 95% confidence intervals, respectively, estimated from multivariable linear regression models with log$_2$ fold-change as the outcome and influenza subtype included as a covariate. Regression coefficients and confidence intervals were exponentiated ($2^{\beta_2}$) for presentation. Fluzone-SD was the reference prior-season vaccine for all comparisons except those among FLUAD recipients, for which Fluzone-HD was the reference. The dashed vertical line at 1 indicates no difference relative to the reference group. Values above 1 indicate higher estimated fold-change responses, whereas values below 1 indicate lower estimated responses. Benjamini-Hochberg-adjusted p-values are provided in the SM. Numbers adjacent to estimates indicate the number of observations in the corresponding prior-season vaccine group across the available influenza subtypes. “Ref: n=” indicates the number of observations in the reference prior-season vaccine group.]{color="#FF2400"}
+#| echo: false
+#| results: asis
+knitr::include_graphics(
+	here::here("results/figures/regression/primary/plot-regression-primary-overall.png")
+)
+```
+
+## Associations by influenza subtype
+
+We fit separate regression models for each influenza subtype to examine patterns that may not be captured by the overall models (@fig-reg-forest-subtype). Some associations varied in magnitude and direction across influenza subtypes within the same current-season vaccine.
+
+Among recipients of Fluzone-SD, prior FluMist vaccination was associated with higher estimated fold-change responses for H1N1 (`r fmt_est("Fluzone-SD", "prev_vaccine_abbrFM", subtype = "H1N1")`) and B-Victoria (`r fmt_est("Fluzone-SD", "prev_vaccine_abbrFM", subtype = "B-Victoria")`), with a similar positive point estimate for B-Yamagata (`r fmt_est("Fluzone-SD", "prev_vaccine_abbrFM", subtype = "B-Yamagata")`). The H3N2 point estimate was near one. Prior Flucelvax vaccination also had point estimates above one across the available subtypes, but aside from B-Yamagata (`r fmt_est("Fluzone-SD", "prev_vaccine_abbrFV", subtype = "B-Yamagata")`), confidence intervals included one. Associations with prior Fluzone-Intradermal varied across subtypes, with lower estimated responses for H3N2 (`r fmt_est("Fluzone-SD", "prev_vaccine_abbrID", subtype = "H3N2")`) but higher estimated responses for B-Yamagata (`r fmt_est("Fluzone-SD", "prev_vaccine_abbrID", subtype = "B-Yamagata")`).
+
+Among recipients of Fluzone-HD, estimates for prior Fluzone-HD vaccination were consistently below one, but confidence intervals included one across all four influenza subtypes. Associations with prior Fluzone-Intradermal differed by subtype, with a lower estimated response for H3N2 (`r fmt_est("Fluzone-HD", "prev_vaccine_abbrID", subtype = "H3N2")`) but a point estimate above one for B-Yamagata (`r fmt_est("Fluzone-HD", "prev_vaccine_abbrID", subtype = "B-Yamagata")`).
+
+Among recipients of Flucelvax, estimates for prior FluBlok vaccination were below one across the available subtypes, with the strongest negative association observed for B-Victoria (`r fmt_est("Flucelvax", "prev_vaccine_abbrFB", subtype = "B-Victoria")`). Associations with prior Flucelvax differed across subtypes. The estimated association was above one for H3N2 (`r fmt_est("Flucelvax", "prev_vaccine_abbrFV", subtype = "H3N2")`) but below one for B-Yamagata (`r fmt_est("Flucelvax", "prev_vaccine_abbrFV", subtype = "B-Yamagata")`) and B-Victoria (`r fmt_est("Flucelvax", "prev_vaccine_abbrFV", subtype = "B-Victoria")`).
+
+Among FluMist recipients, estimates for prior FluMist were near one for H3N2 and B-Victoria and below one for B-Yamagata, with confidence intervals including one. Among recipients of FluBlok, estimates for prior Flucelvax vaccination were above one across the available subtypes, whereas estimates for prior FluBlok vaccination were below one. These patterns were most pronounced for B-Victoria, although the confidence intervals were wide. Among recipients of FLUAD, prior FLUAD vaccination was associated with a higher estimated H3N2 fold-change response relative to prior Fluzone-HD (`r fmt_est("FLUAD", "prev_vaccine_abbrFA", subtype = "H3N2")`), whereas the B-Victoria estimate was near one.
+
+```{r}
+#| label: fig-reg-forest-subtype
+#| fig-cap: |
+#|   [Adjusted associations between prior-season vaccine type and HAI fold-change responses, stratified by current-season vaccine and influenza subtype. Facet rows represent current-season vaccines, and columns represent influenza subtypes. Within each panel, prior-season vaccine types are shown on the vertical axis. Points and horizontal lines represent adjusted fold-change ratios and their unadjusted 95% confidence intervals, respectively, estimated from multivariable linear regression models with log$_2$ fold-change as the outcome. Regression coefficients and confidence intervals were exponentiated ($2^{\beta_2}$) for presentation. Fluzone-SD was the reference prior-season vaccine for all comparisons except those among FLUAD recipients, for which Fluzone-HD was the reference. The dashed vertical line at 1 indicates no difference relative to the reference group. Values above 1 indicate higher estimated fold-change responses, whereas values below 1 indicate lower estimated responses. Benjamini-Hochberg-adjusted p-values are provided in the SM. Numbers adjacent to estimates indicate the number of observations in the corresponding prior-season vaccine and influenza subtype group.  “Ref: n=” indicates the number of observations in the corresponding subtype-specific reference group.]{color="#FF2400"}
+#| echo: false
+#| results: asis
+knitr::include_graphics(
+	here::here("results/figures/regression/primary/plot-regression-primary-subtype.png")
+)
+```
+
+## Sensitivity analyses
+
+We conducted two sensitivity analyses to assess the robustness of the overall and subtype-specific regression findings (see SM). First, we repeated the analyses using only FluVac data to evaluate the influence of combining observations from the two studies.  Estimates and confidence intervals were nearly identical to those from the primary analysis. Second, we repeated the analyses using fixed substitution of one-half the assay limit of detection (1:5) for censored HAI titers instead of multiple imputation. Estimates and confidence intervals were again largely unchanged, indicating that the findings were robust to both the inclusion of URIV observations and the alternative handling of censored titers.
+
+# Discussion
+
+We investigated associations between prior-season influenza vaccine type and subsequent HAI antibody responses, both across influenza subtypes and separately by subtype. Estimated associations varied across prior/current vaccine combinations, with subtype-specific analyses revealing both similarities and differences in the direction and magnitude of associations. These findings extend previous research on repeated influenza vaccination, which has largely focused on whether individuals were previously vaccinated rather than the specific vaccine formulation they received. We did not identify a prior-season vaccine type that was consistently associated with higher or lower responses across all current vaccines and subtypes, but several patterns suggest that vaccine formulation history may be relevant to subsequent antibody responses.
+
+Live attenuated influenza vaccination (FluMist) presents a particularly unique case. Although LAIV generally elicits lower systemic HAI responses than inactivated vaccines [@tong2024; @mohn2018; @cao2014; @hoft2017], prior FluMist vaccination was associated with higher estimated fold-change responses among subsequent Fluzone-SD recipients in the overall analysis and for H1N1, B-Yamagata, and B-Victoria in the subtype-specific analyses. LAIV can induce mucosal and cellular immune responses that differ from those elicited by inactivated vaccines [@hoft2017; @cao2014], potentially influencing the development or maintenance of immune memory. However, the mechanisms underlying the observed associations remain unclear. Future studies could examine the magnitude and specificity of memory B-cell and CD4 T-cell responses following different vaccine formulations, as well as early recall responses after subsequent vaccination, to determine whether differences in immune memory contribute to these patterns.
+
+The associations observed for other vaccine formulations further suggest that the relationship between prior vaccination history and subsequent antibody responses may depend on both the current-season vaccine and influenza subtype. For example, among Flucelvax recipients, the association with prior Flucelvax vaccination differed in direction across subtypes, illustrating how overall estimates may obscure subtype-specific patterns. Similarly, the higher estimated H3N2 response associated with repeated FLUAD vaccination was consistent in direction with previous findings from an analysis of neuraminidase inhibition antibody responses [@daulagala2025]. Differences in antigen composition and innate immune stimulation between vaccine formulations could plausibly influence the development and recall of immune memory, but the present analysis cannot determine whether these mechanisms explain the observed associations.
+
+The sensitivity analyses provided additional support for the robustness of the findings. Restricting the analyses to FluVac data yielded estimates and confidence intervals nearly identical to those from the combined analysis, suggesting that the inclusion of URIV observations did not materially influence the overall or subtype-specific associations. This consistency is notable given the differences in study design and the restriction of URIV observations to same-vaccine sequences, although it does not eliminate the possibility of residual confounding or heterogeneity between study populations. Similarly, substituting censored titers with one-half the assay limit of detection produced estimates comparable to those obtained using multiple imputation. Although fixed substitution can introduce bias, particularly when censoring is substantial [@lubin2004], the consistency across methods suggests that the main findings were not strongly influenced by the approach used to handle censored titers. Multiple imputation nevertheless accounts for uncertainty about unobserved values below the detection limit, subject to assumptions about their underlying distribution.
+
+This study has several limitations. The underlying studies were not designed to systematically evaluate vaccine sequences, and vaccine assignments were not randomized across all observed combinations. Many vaccine sequences were observed in only a few influenza seasons, potentially introducing confounding by temporal factors that may not have been fully accounted for in the adjusted analysis. Residual confounding from unmeasured factors, including prior influenza infection and other aspects of individual immune history, also cannot be excluded. Several vaccine-sequence groups contained few observations, which reduced statistical power and increased uncertainty in estimates. The overall regression models assumed common prior-vaccine associations across influenza subtypes, although subtype-specific estimates varied in magnitude and direction. These differences were not formally tested and should be interpreted as exploratory. Additionally, given the large number of comparisons, some observed associations may reflect chance findings. 
+
+The imputation procedure relied on distributional assumptions estimated from observations uncensored at both time points and did not condition on all regression covariates, potentially influencing the estimated associations. Because pre-vaccination HAI titers may themselves be influenced by prior vaccination, adjustment for baseline titers means that our estimates reflect associations conditional on measured pre-existing antibody levels rather than the total association of prior-season vaccine type with subsequent antibody responses. Finally, immune responses were measured using HAI assays against egg-based vaccine strains. HAI is a widely used correlate of protection, but it does not fully capture the breadth of vaccine-induced immunity. This may be particularly relevant for live-attenuated vaccines, which induce limited systemic HAI responses, and cell-based vaccines, for which the vaccine strains may differ from the egg-based strains used in the HAI assays. Furthermore, HAI fold-change is a measure of immunogenicity and does not directly establish differences in clinical protection.
+
+Our study focused on whether prior-season vaccine type was associated with antibody responses among recipients of the same current-season vaccine. This approach allowed us to examine prior vaccination history while holding the current-season vaccine constant, but it did not permit direct comparisons of different current-season vaccines or formal estimation of interactions between prior- and current-season vaccine types. Future studies designed to systematically represent different vaccine sequences could address these questions more directly and determine whether particular combinations consistently elicit different immune responses.
+
+Our findings suggest that associations between prior-season influenza vaccine type and subsequent antibody responses may vary across current-season vaccines and influenza subtypes. Although the available data were not designed to systematically evaluate vaccine sequences, the observed patterns highlight the importance of vaccine formulation history and provide a foundation for investigating its role in shaping subsequent influenza vaccine responses.
+
+# Acknowledgements
+
+Certain influenza A and B viruses were obtained through the Prevention and Control of Influenza, Centers for Disease Control and Prevention, Atlanta, GA, USA and the International Reagent Resource. The authors would like to thank the influenza vaccine teams for sample collection, blood and saliva processing and technical assistance including Alexandra Abu-Shmais, Julia Aguirre, Brittany Baker, Jordan Byrne, Jasmine Burris, Michael Carlock, Noah Cecil, Patrick Fagan, Brianna Gamez, Wayne Grant, Omar Hamwy, John Ingram, Hannah Hanley, Lauren Howland, Erin Jarrett, Hana Ji, David Lee, Mitchell Lee, Katie Mailloux, Maya McCoy, Zachary McGuire, Jessica Medina, Dylan Micaleff, Hua Shi, Spencer Pierce, Frankie Stewart, Matthew Thomas, Naoko Uno, Terris Wimbs, and Emma Whitesell. We would also like to thank all participants enrolled in the study, as well as Dr. Brad Phillips, Kimberly Schmitz, and the entire staff at the University of Georgia Clinical and Translational Research Unit (CTRU) for assistance in collecting samples in the influenza vaccine program. 
+
+# Data Availability
+
+All relevant data and analysis code are publicly available in the GitHub and Zenodo repositories.
+
+# Funding Statement 
+
+This project has been funded as part of the Collaborative Influenza Vaccine Innovations Centers (CIVICs) by the National Institute of Allergy and Infectious Diseases, a component of the NIH, Department of Health and Human Services, under contract 75N93019C00052. T.M.R is also supported in part as a Georgia Eminent Scholar by the Georgia Research Alliance, GRA-001. The CTRU was supported by the National Center for Advancing Translational Sciences of the National Institutes of Health under Award Number UL1TR002378. The funders had no role in study design, data collection and analysis, decision to publish, or preparation of the manuscript.
+
+\pagebreak
+
+# References

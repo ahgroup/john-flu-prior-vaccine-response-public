@@ -1,0 +1,1142 @@
+---
+title: "Supplementary Materials: Associations between prior influenza vaccine type and subsequent vaccine-induced antibody responses"
+author: " "
+format: docx
+bibliography: ../../products/manuscript/john-immune-priming-supplement.bib
+csl: ../../products/manuscript/ieee.csl
+nocite: "@*"
+execute: 
+  echo: false
+  message: false
+  warning: false
+lang: en-US
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, echo=FALSE, message=FALSE}
+# load a few R packages
+library(here)
+library(knitr)
+
+# for table fits
+suppressPackageStartupMessages({
+	library(flextable)
+})
+
+fit_flextable_to_page <- function(tbl, page_width = 6.5){
+	
+	ft_out <- tbl
+	
+	ft_width <- (dim(ft_out)$widths * page_width) /
+		(flextable::flextable_dim(ft_out)$widths)
+	
+	ft_out <- flextable::width(ft_out, width = ft_width)
+	
+	return(ft_out)
+}
+```
+
+# Reproducibility Instructions
+
+Our data and code are archived on GitHub (https://github.com/ahgroup/john-flu-prior-vaccine-response-public) and Zenodo (**TODO**). To reproduce our results, first clone or download the GitHub repository. Once downloaded, open the `.Rproj` file in RStudio. We used the R package `targets` [@williammichaellandau2021] to organize the analysis pipeline, which can be executed in full by running `targets::tar_make()`. The pipeline manages data processing, statistical analyses, and generation of results and figures in a reproducible workflow. You can visualize the workflow using `targets::tar_visnetwork()` and run only select targets by passing a vector of target names to `tar_make()`, optionally using tidyselect helpers. Due to OS and file system differences, some targets may appear outdated even when up-to-date; this can be safely ignored. All code required to reproduce the reported analyses and figures is provided in the repository.
+
+Once you have cloned our repository, follow these instructions to reproduce our results.
+
+1. Open the `john-flu-prior-vaccine-response-public.Rproj` file in RStudio.
+2. Once renv initializes, run the command renv::restore() in the console to begin installing the required packages. If you have issues at this stage you can also install the dependencies manually, but if you do not use renv or you use different package versions than we did, our code might not work for you.
+3.	Run the full analysis pipeline by entering `targets::tar_make()` in the console. See the `_targets.R` file for further instructions and the full pipeline. If you are new to targets and want to learn more about how the pipeline works, we recommend reading the targets manual which can be found here: https://books.ropensci.org/targets/.
+
+We conducted all analyses in R version 4.6.2 (2026-10-29 ucrt) [@rcoreteam2025a] in RStudio version 2026.01.0+392 [@positteam2025a].
+
+# Extended Methods
+
+## Vaccine formulations and assay strains
+
+The influenza vaccine products included in the analysis varied in manufacturer, formulation type, approved age range, production method, and route of administration. These characteristics are summarized in @tbl-vaccine-types.
+
+```{r}
+#| label: tbl-vaccine-types
+
+readRDS(here::here("results/tables/descriptive/vaccine-formulations.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+The homologous egg-based HAI assay strains varied by influenza season. For each season, HAI assays were performed against the corresponding H1N1, H3N2, B-Yamagata, and B-Victoria vaccine strains used in the analysis (@tbl-homologous-strain).
+
+```{r}
+#| label: tbl-homologous-strain
+
+readRDS(here::here("results/tables/descriptive/homologous-strains.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+## Eligibility and exclusion criteria
+
+Vaccine sequences are presented as prior-season vaccine/current-season vaccine.
+
+Sequences with fewer than five observations were excluded from the analysis. These were Flucelvax/Fluzone-HD (n=1), FluBlok/Fluzone-HD (n=1), FluBlok/FluMist (n=4), FluMist/Flucelvax (n=1), FluMist/FluBlok (n=2), and Fluzone-SD/FLUAD (n=1).
+
+We additionally excluded vaccine-sequence-subtype strata in which more than 50% of the combined pre- and post-vaccination HAI titer measurements were left-censored. The excluded H1N1 strata were Flucelvax/Fluzone-SD (100%), FluBlok/Fluzone-SD (60%), FluMist/FluMist (69.4%), Fluzone-SD/Flucelvax (57.7%), FluBlok/Flucelvax (73.7%), and Fluzone-HD/FLUAD (85.3%).
+
+Following these exclusions, the H1N1 current-season FluMist and FLUAD groups each contained only one eligible prior-vaccine group (Fluzone-SD/FluMist and FLUAD/FLUAD, respectively) and were therefore excluded from the regression comparisons.
+
+## Censoring and multiple imputation
+
+The HAI assays in our study were performed with an initial serum dilution of 1:10 [@berber2026a; @carlock2019]. If hemagglutination was observed at this starting dilution, the HAI titer was recorded as below the limit of detection (LOD). Substitution with a fixed value, commonly one-half the LOD, is frequently used for measurements below an assay detection limit, but this approach can introduce bias, particularly when the proportion of censored observations is substantial [@lubin2004]. In our study data, values below the LOD were recorded as 1:5. Number and percentage of left-censored HAI titer measurements (pre- and posttiter) by current-season vaccine, prior-season vaccine, and influenza subtype are shown in @tbl-censored-counts.
+
+We treated HAI titers below the assay LOD (1:10) as left-censored observations and imputed values below the LOD using conditional truncated-normal distributions, following the general approach described by Williamson et al. [@WilliamsonEtAl2010]. 
+
+For the primary analysis, censored values were imputed under a bivariate normal model for log$_2$-transformed pre- and post-vaccination titers. To account for dependence between pre- and post-vaccination titers [@carlock2019; @moritzky2022; @nunez2017] and differences in antibody responses across vaccine products [@cowling2020b; @gouma2019; @tong2024] and influenza subtypes, the joint distribution was estimated separately for each current-season vaccine type and influenza subtype using observations uncensored at both time points. Because these observations represent a selected subset of the data, the estimated distribution was treated as an approximation for imputing censored values rather than a fully identified model of the underlying titer distribution. Titers were log$_2$-transformed prior to imputation.
+
+Let $Y_{\text{pre}}$ and $Y_{\text{post}}$ denote the log$_2$-transformed pre-vaccination and post-vaccination titers, respectively. Within each current-season vaccine and influenza subtype group, observations for which both titers were at or above the LOD ($L = \log_2(10)$) were used to estimate the mean vector and covariance matrix of the joint distribution. Here, $\mathcal{N}(\boldsymbol{\mu},\boldsymbol{\Sigma})$ denotes a bivariate normal distribution. Although log$_2$ HAI titers are measured on a discrete twofold dilution scale, we treated log$_2$-transformed titers as approximately continuous and normally distributed for the purpose of imputing censored values.
+
+$$
+\begin{pmatrix}
+Y_{\text{pre}} \\
+Y_{\text{post}}
+\end{pmatrix}
+\sim
+\mathcal{N}
+\left(
+\begin{pmatrix}
+\mu_{\text{pre}} \\
+\mu_{\text{post}}
+\end{pmatrix},
+\begin{pmatrix}
+\sigma_{\text{pre}}^2 &
+\sigma_{\text{pre,post}} \\
+\sigma_{\text{pre,post}} &
+\sigma_{\text{post}}^2
+\end{pmatrix}
+\right).
+$$
+
+For observations with a censored pre-vaccination titer but an observed post-vaccination titer, the pre-vaccination titer was sampled from its conditional distribution:
+
+$$
+Y_{\text{pre}} \mid Y_{\text{post}}
+\sim
+\mathcal{N}_{(-\infty, \text{L})}
+\left(
+\mu_{\text{pre}}
++
+\frac{\sigma_{\text{pre,post}}}
+{\sigma_{\text{post}}^2}
+\left(
+Y_{\text{post}}-\mu_{\text{post}}
+\right),
+\;
+\sigma_{\text{pre}}^2
+-
+\frac{\sigma_{\text{pre,post}}^2}
+{\sigma_{\text{post}}^2}
+\right).
+$$
+
+Similarly, for observations with a censored post-vaccination titer and an observed pre-vaccination titer, the post-vaccination titer was sampled from its conditional distribution:
+
+$$
+Y_{\text{post}} \mid Y_{\text{pre}}
+\sim
+\mathcal{N}_{(-\infty, \text{L})}
+\left(
+\mu_{\text{post}}
++
+\frac{\sigma_{\text{pre,post}}}
+{\sigma_{\text{pre}}^2}
+\left(
+Y_{\text{pre}}-\mu_{\text{pre}}
+\right),
+\;
+\sigma_{\text{post}}^2
+-
+\frac{\sigma_{\text{pre,post}}^2}
+{\sigma_{\text{pre}}^2}
+\right).
+$$
+
+Because censored observations were known only to be below the LOD, the conditional distributions were truncated above at the LOD with no finite lower bound. Thus, on the original titer scale, imputed values were constrained to be positive and below the LOD.
+
+Imputed values therefore remained below the assay LOD while reflecting the estimated dependence between pre- and post-vaccination titers. We used a Gibbs sampling procedure with 100 iterations to impute censored pre- and post-vaccination titers. The procedure was initialized using the recorded log2-transformed titer values. At each iteration, censored pre-vaccination titers were sampled from their conditional truncated-normal distributions given the current post-vaccination titers, followed by censored post-vaccination titers conditional on the updated pre-vaccination titers. Uncensored measurements remained fixed. The imputation procedure was stratified by current-season vaccine type and influenza subtype but did not condition on prior-season vaccine type or the other covariates included in the subsequent regression models. The final imputed values after 100 iterations were retained to construct each completed dataset.
+
+For observations in which both pre- and post-vaccination titers were below the LOD, neither true titer was observed. Both values were therefore updated iteratively using the Gibbs sampling procedure described above, with each value sampled conditionally on the current value of the other titer.
+
+We generated 40 imputed datasets by independently repeating the imputation procedure. For each imputed dataset, the resulting pre- and post-vaccination titers were used to calculate log$_2$ fold change as 
+
+$$\log_2(\text{FC}) = Y_{\text{post}} - Y_{\text{pre}}.$$
+
+The imputed pre-vaccination titers and log$_2$ fold-change variables were then used in the regression models evaluating the effect of prior vaccination on the response to the current-season vaccine. Regression estimates across the 40 imputed datasets were combined using Rubin's rules. Results were insensitive to increasing the number of Gibbs sampling iterations and the number of imputed datasets. As a sensitivity analysis, we used the commonly applied fixed-substitution approach and assigned titers below the LOD a value of one-half the LOD (1:5) [@lubin2004].
+
+```{r}
+#| label: tbl-censored-counts
+
+readRDS(here::here("results/tables/descriptive/censored-counts.rds")) |>
+  fontsize(size = 9.5, part = "all") |>
+  fit_flextable_to_page()
+```
+
+## Regression model specification
+
+We fit multivariable linear regression models separately for each current-season vaccine type, first including influenza subtype as a categorical covariate to estimate common prior-vaccine associations across subtypes, and then fitting separate models within each influenza subtype. The outcome was log$_2$-transformed HAI fold change. All models included prior-season vaccine type, min-max-normalized age, and min-max-normalized log$_2$ pre-vaccination HAI titer. Normalization was performed within current-season vaccine for the overall models and within current-season vaccine and influenza subtype for the subtype-specific models. For multiply imputed analyses, pre-vaccination titers were normalized separately within each completed dataset after imputation.
+
+Study was included when observations from both FluVac and URIV were available. Vaccine strain and strain change were considered according to their variation and estimability within each model. When both were eligible for inclusion but could not be estimated jointly, strain change was retained. The additional covariates included in the overall and subtype-specific models are summarized in @tbl-model-terms-overall and @tbl-model-terms-subtype, respectively. 
+
+Each model was fitted separately to the 40 imputed datasets. To account for within-participant correlation arising from repeated observations (described below), participant-clustered robust variance estimates were calculated for each fitted model. Regression coefficients and their corresponding variances were combined using Rubin's rules. The Benjamini-Hochberg false discovery rate adjustment was applied across all prior-season vaccine comparisons separately for the overall and subtype-specific analyses. For the subtype-specific analyses, comparisons across all current-season vaccines and influenza subtypes were included in the same adjustment. Both unadjusted and adjusted p-values are reported in @tbl-regression-FZSD-overall through @tbl-regression-FZSD-bvic, alongside 95% confidence intervals without multiplicity adjustment.
+
+```{r}
+#| label: tbl-model-terms-overall
+
+readRDS(here::here("results/tables/model-specifications/model-terms-overall.rds")) |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-model-terms-subtype
+
+readRDS(here::here("results/tables/model-specifications/model-terms-subtype.rds")) |>
+  fit_flextable_to_page()
+```
+
+### Participant clustering
+
+Participants could contribute multiple observations corresponding to different pairs of consecutive vaccination seasons. In the overall models, participants could additionally contribute measurements for multiple influenza subtypes within the same vaccination pair. We calculated participant-clustered robust variance estimates to account for within-participant correlation arising from these repeated observations.
+
+@tbl-n-clusters-overall and @tbl-n-clusters-subtype summarize the distribution of observations across participant clusters in the overall and subtype-specific models, respectively. For each model, we report the total number of observations, number of unique participants, number of participants contributing more than one observation, and maximum number of observations contributed by a single participant. Each participant was treated as one cluster within the corresponding model.
+
+```{r}
+#| label: tbl-n-clusters-overall
+
+readRDS(here::here("results/tables/descriptive/cluster-counts/cluster-counts-overall.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-n-clusters-subtype
+
+readRDS(here::here("results/tables/descriptive/cluster-counts/cluster-counts-subtype.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+# Extended Descriptive Results
+
+## Participant characteristics
+
+Participant demographics were summarized by study site based on each participant's first enrollment (@tbl-demographics).  One participant contributed observations at both the University of Georgia and Cleveland Clinic Florida sites and was assigned to the University of Georgia for this table. Continuous variables are presented as median (IQR), and categorical variables as count (%). Study sites included Stuart/Port St. Lucie, Florida (FL); Pittsburgh, Pennsylvania (PA); the University of Georgia (UGA); Cleveland Clinic Florida (CCF); and the University of Rochester (URIV).
+
+```{r}
+#| label: tbl-demographics
+
+readRDS(here::here("results/tables/descriptive/demographics.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+## Eligible vaccination pairs
+
+@tbl-n-obs summarizes the number of eligible observations for each combination of prior- and current-season vaccine types. Each observation represents a current-season vaccination with a documented vaccine type from the preceding season. Rows indicate the prior-season vaccine and columns indicate the current-season vaccine. Participants could contribute multiple observations if they had more than one eligible pair of consecutive vaccination seasons.
+
+```{r}
+#| label: tbl-n-obs
+
+readRDS(here::here("results/tables/descriptive/eligible-observations/all/eligible-observations-all.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+@tbl-n-obs-fluvac and @tbl-n-obs-uriv summarize the eligible observations by vaccine sequence separately for the FluVac cohort and URIV clinical trial, respectively. Rows indicate prior-season vaccine type and columns indicate current-season vaccine type. These tables illustrate the vaccine combinations represented within each study.
+
+```{r}
+#| label: tbl-n-obs-fluvac
+
+readRDS(here::here("results/tables/descriptive/eligible-observations/by-study/eligible-observations-FluVac.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-n-obs-uriv
+
+readRDS(here::here("results/tables/descriptive/eligible-observations/by-study/eligible-observations-URIV.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+@tbl-n-obs-fl - @tbl-n-obs-ccf summarize eligible observations by vaccine sequence across the four FluVac study sites: Stuart/Port St. Lucie, Florida (FL); Pittsburgh, Pennsylvania (PA); the University of Georgia (UGA); and Cleveland Clinic Florida (CCF). Rows indicate prior-season vaccine type and columns indicate current-season vaccine type. Observations were assigned according to the study site at which the current-season vaccination occurred.
+
+```{r}
+#| label: tbl-n-obs-fl
+
+readRDS(here::here("results/tables/descriptive/eligible-observations/by-site/eligible-observations-FL.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-n-obs-pa
+
+readRDS(here::here("results/tables/descriptive/eligible-observations/by-site/eligible-observations-PA.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-n-obs-uga
+
+readRDS(here::here("results/tables/descriptive/eligible-observations/by-site/eligible-observations-UGA.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-n-obs-ccf
+
+readRDS(here::here("results/tables/descriptive/eligible-observations/by-site/eligible-observations-CCF.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+## Subtype-specific sample sizes
+
+@tbl-n-obs-h1n1 - @tbl-n-obs-bvic summarize the number of eligible observations for each prior/current-season vaccine combination, separately for H1N1, H3N2, B-Yamagata, and B-Victoria. Rows indicate prior-season vaccine type and columns indicate current-season vaccine type. Sample sizes vary across subtypes because not all observations contributed HAI measurements for every subtype and some vaccine-sequence-subtype strata were excluded according to the criteria described in the Extended Methods. FluBlok and FLUAD were not evaluated for B-Yamagata in seasons when the corresponding vaccine formulations did not contain a B-Yamagata component.
+
+```{r}
+#| label: tbl-n-obs-h1n1
+
+readRDS(here::here("results/tables/descriptive/eligible-observations/by-subtype/eligible-observations-H1N1.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-n-obs-h3n2
+
+readRDS(here::here("results/tables/descriptive/eligible-observations/by-subtype/eligible-observations-H3N2.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-n-obs-byam
+
+readRDS(here::here("results/tables/descriptive/eligible-observations/by-subtype/eligible-observations-B-Yamagata.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-n-obs-bvic
+
+readRDS(here::here("results/tables/descriptive/eligible-observations/by-subtype/eligible-observations-B-Victoria.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+## Descriptive antibody responses
+
+We first examined immune responses by current-season vaccine type without accounting for prior vaccine history. Pre-vaccination titer, post-vaccination titer, and fold-change responses are shown by current-season vaccine and influenza subtype (@fig-current). Columns denote influenza subtype, rows denote the outcome measure, and the x-axis within each column denotes the current-season vaccine type. Observations are colored by age group ($< 65$, $\ge 65$, or unknown) and shaped by study (FluVac or URIV). Black diamonds and vertical lines denote the median and interquartile range (IQR), respectively. The fold-change axis is truncated at 0.25 for visual clarity; observations below this threshold are excluded from the figure but described in @tbl-fc-small-h1n1 - @tbl-fc-small-bvic. Censored observations are shown at their recorded value (1:5, half the limit of detection), and fold-change was calculated using the recorded value.
+
+```{r}
+#| label: fig-current
+
+knitr::include_graphics(
+	here::here("results/figures/descriptive/current-vaccine/plot-current.png")
+)
+```
+
+@tbl-fc-small-h1n1 - @tbl-fc-small-bvic show observed fold-change values below 0.25 by current and prior vaccine type for each subtype. As in the main text, for values below the LOD, we consider the recorded value (1:5) when calculating fold change. Header columns denote the current vaccine received sub-headers denote the prior vaccine. Rows denote the observed fold-change value, rounded to four decimal places. Cell values represent counts; cells with no observations are indicated by a dash.
+
+```{r}
+#| label: tbl-fc-small-h1n1
+
+readRDS(here::here("results/tables/descriptive/small-fold-changes/small-fc-H1N1.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-fc-small-h3n2
+
+readRDS(here::here("results/tables/descriptive/small-fold-changes/small-fc-H3N2.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-fc-small-byam
+
+readRDS(here::here("results/tables/descriptive/small-fold-changes/small-fc-B-Yamagata.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-fc-small-bvic
+
+readRDS(here::here("results/tables/descriptive/small-fold-changes/small-fc-B-Victoria.rds")) |>
+  fontsize(size = 8, part = "all") |>
+  fit_flextable_to_page()
+```
+
+We summarized observed pre-vaccination HAI titers, post-vaccination HAI titers, and fold-change responses by prior- and current-season vaccine type and influenza subtype (@fig-prior-current-pre - @fig-prior-current-fc). These descriptive analyses used recorded HAI titers, with measurements below the assay limit of detection (1:10) represented by their recorded value of 1:5. Fold-change was calculated as the ratio of recorded post-vaccination to pre-vaccination titers.
+
+Pre-vaccination titers and fold-change responses varied across vaccine-sequence groups and influenza subtypes. However, these comparisons do not account for differences in baseline immunity, age, study population, or other factors that may influence antibody responses. Accordingly, these patterns are presented descriptively, with adjusted associations evaluated in the multivariable regression analyses reported in the main text and supplementary regression tables.
+
+```{r}
+#| label: fig-prior-current-pre
+
+knitr::include_graphics(
+	here::here("results/figures/descriptive/prior-current-vaccine/plot-prior-current-pretiter.png")
+)
+```
+
+```{r}
+#| label: fig-prior-current-post
+
+knitr::include_graphics(
+	here::here("results/figures/descriptive/prior-current-vaccine/plot-prior-current-posttiter.png")
+)
+```
+
+```{r}
+#| label: fig-prior-current-fc
+
+knitr::include_graphics(
+	here::here("results/figures/descriptive/prior-current-vaccine/plot-prior-current-fc.png")
+)
+```
+
+@fig-pre-post-h1n1 - @fig-pre-post-bvic plot pre- and post-vaccination HAI titers for each subtype, stratified by current-season vaccine and prior vaccine type. Each panel corresponds to a current-season vaccine (labeled above). The x-axis shows the prior vaccine type and the y-axis displays HAI titer on a log$_2$ scale. Pre-vaccination (green) and post-vaccination (blue) titers are shown for each observation as connected points, with grey lines linking pre- and post-vaccination values. Black diamonds denote the median for each prior vaccine and titer type combination.
+
+```{r}
+#| label: fig-pre-post-h1n1
+#| echo: false
+#| results: asis
+knitr::include_graphics(
+	here::here("results/figures/descriptive/pre-post/plot-pre-post-H1N1.png")
+)
+```
+
+```{r}
+#| label: fig-pre-post-h3n2
+#| echo: false
+#| results: asis
+knitr::include_graphics(
+	here::here("results/figures/descriptive/pre-post/plot-pre-post-H3N2.png")
+)
+```
+
+```{r}
+#| label: fig-pre-post-byam
+#| echo: false
+#| results: asis
+knitr::include_graphics(
+	here::here("results/figures/descriptive/pre-post/plot-pre-post-B-Yamagata.png")
+)
+```
+
+```{r}
+#| label: fig-pre-post-bvic
+#| echo: false
+#| results: asis
+knitr::include_graphics(
+	here::here("results/figures/descriptive/pre-post/plot-pre-post-B-Victoria.png")
+)
+```
+
+## Descriptive analyses by study
+
+To examine observed HAI responses separately within the two study populations, we summarized pre-vaccination titers, post-vaccination titers, and fold-change responses by prior- and current-season vaccine type and influenza subtype, stratified by study (@fig-prior-current-study-pre - @fig-prior-current-study-fc). Individual observations are shown as points, with black diamonds and error bars indicating medians and interquartile ranges, respectively. Censored titers are represented by their recorded value of 1:5, and fold-change was calculated using the recorded values. These analyses provide descriptive comparisons between the FluVac cohort and URIV clinical trial and do not account for differences in participant characteristics or vaccine-sequence representation between studies.
+
+```{r}
+#| label: fig-prior-current-study-pre
+#| echo: false
+#| results: asis
+knitr::include_graphics(
+	here::here("results/figures/descriptive/by-study/plot-prior-current-study-pretiter.png")
+)
+```
+
+```{r}
+#| label: fig-prior-current-study-post
+#| echo: false
+#| results: asis
+knitr::include_graphics(
+	here::here("results/figures/descriptive/by-study/plot-prior-current-study-posttiter.png")
+)
+```
+
+```{r}
+#| label: fig-prior-current-study-fc
+#| echo: false
+#| results: asis
+knitr::include_graphics(
+	here::here("results/figures/descriptive/by-study/plot-prior-current-study-fc.png")
+)
+```
+
+To further characterize variation in observed HAI responses across study sites, we generated descriptive plots of pre-vaccination titers, post-vaccination titers, and fold-change responses by prior- and current-season vaccine type, influenza subtype, and study site. These plots use recorded HAI titers, with measurements below the assay limit of detection represented by their recorded value of 1:5. Fold-change was calculated using the recorded values. These plots are not included in the supplement but are available in the public GitHub repository, along with the code used to generate them.
+
+## Extended Regression Results
+
+### Primary overall models
+
+Full coefficient estimates from the overall multivariable regression models are presented in @tbl-regression-FZSD-overall - @tbl-regression-FA-overall, separately for each current-season vaccine type. Estimates and 95% confidence intervals were exponentiated for interpretation as adjusted fold-change ratios. The tables include coefficients for prior-season vaccine type and all additional covariates retained in each model. Benjamini-Hochberg-adjusted p-values are reported for prior-season vaccine comparisons.
+
+```{r}
+#| label: tbl-regression-FZSD-overall
+
+readRDS(here::here("results/tables/regression/primary/overall/regression-overall-Fluzone-SD.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-overall
+
+readRDS(here::here("results/tables/regression/primary/overall/regression-overall-Fluzone-HD.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-overall
+
+readRDS(here::here("results/tables/regression/primary/overall/regression-overall-FluMist.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-overall
+
+readRDS(here::here("results/tables/regression/primary/overall/regression-overall-Flucelvax.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-overall
+
+readRDS(here::here("results/tables/regression/primary/overall/regression-overall-FluBlok.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FA-overall
+
+readRDS(here::here("results/tables/regression/primary/overall/regression-overall-FLUAD.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+### Primary subtype-specific models
+
+Full coefficient estimates from the subtype-specific regression models are presented in @tbl-regression-FZSD-H1N1 - @tbl-regression-FA-bvic, organized by influenza subtype and current-season vaccine type. These models were fitted separately within each influenza subtype, allowing associations with prior-season vaccine type to be examined without assuming common associations across subtypes. The tables include exponentiated coefficients, 95% confidence intervals, unadjusted p-values, and Benjamini-Hochberg-adjusted p-values for prior-season vaccine comparisons.
+
+```{r}
+#| label: tbl-regression-FZSD-H1N1
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-Fluzone-SD-H1N1.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-H1N1
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-Fluzone-HD-H1N1.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-H1N1
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-FluBlok-H1N1.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZSD-H3N2
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-Fluzone-SD-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-H3N2
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-Fluzone-HD-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-H3N2
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-FluMist-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-H3N2
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-Flucelvax-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-H3N2
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-FluBlok-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FA-H3N2
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-FLUAD-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZSD-byam
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-Fluzone-SD-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-byam
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-Fluzone-HD-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-byam
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-FluMist-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-byam
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-Flucelvax-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZSD-bvic
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-Fluzone-SD-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-bvic
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-Fluzone-HD-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-bvic
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-FluMist-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-bvic
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-Flucelvax-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-bvic
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-FluBlok-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FA-bvic
+
+readRDS(here::here("results/tables/regression/primary/subtype/regression-primary-FLUAD-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+## Sensitivity Analyses
+
+### Fixed substitution for censored titers
+
+We repeated the overall and subtype-specific regression analyses using the recorded HAI titers, with measurements below the assay limit of detection assigned a value of 1:5 rather than multiply imputed. The same eligibility criteria and covariate specifications were used as in the primary analyses. Overall and subtype-specific estimates were similar in magnitude and direction to those obtained using multiple imputation, with no material changes in the general pattern of associations. The corresponding regression figures (@fig-reg-fixed-lod-overall and @fig-reg-fixed-lod-subtype) and full coefficient estimates (@tbl-regression-FZSD-fixed-lod-overall - @tbl-regression-FA-bvic-fixed-lod) are provided below.
+
+#### Overall
+
+```{r}
+#| label: fig-reg-fixed-lod-overall
+knitr::include_graphics(
+	here::here("results/figures/regression/sensitivity/fixed-lod/plot-regression-fixed-lod-overall.png")
+)
+```
+
+```{r}
+#| label: tbl-regression-FZSD-fixed-lod-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/overall/regression-fixed-lod-overall-Fluzone-SD.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-fixed-lod-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/overall/regression-fixed-lod-overall-Fluzone-HD.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-fixed-lod-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/overall/regression-fixed-lod-overall-FluMist.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-fixed-lod-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/overall/regression-fixed-lod-overall-Flucelvax.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-fixed-lod-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/overall/regression-fixed-lod-overall-FluBlok.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FA-fixed-lod-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/overall/regression-fixed-lod-overall-FLUAD.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+#### Subtype-specific
+
+```{r}
+#| label: fig-reg-fixed-lod-subtype
+knitr::include_graphics(
+	here::here("results/figures/regression/sensitivity/fixed-lod/plot-regression-fixed-lod-subtype.png")
+)
+```
+
+```{r}
+#| label: tbl-regression-FZSD-H1N1-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-Fluzone-SD-H1N1.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-H1N1-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-Fluzone-HD-H1N1.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-H1N1-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-FluBlok-H1N1.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZSD-H3N2-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-Fluzone-SD-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-H3N2-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-Fluzone-HD-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-H3N2-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-FluMist-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-H3N2-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-Flucelvax-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-H3N2-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-FluBlok-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FA-H3N2-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-FLUAD-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZSD-byam-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-Fluzone-SD-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-byam-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-Fluzone-HD-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-byam-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-FluMist-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-byam-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-Flucelvax-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZSD-bvic-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-Fluzone-SD-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-bvic-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-Fluzone-HD-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-bvic-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-FluMist-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-bvic-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-Flucelvax-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-bvic-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-FluBlok-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FA-bvic-fixed-lod
+
+readRDS(here::here("results/tables/regression/sensitivity/fixed-lod/subtype/regression-fixed-lod-subtype-FLUAD-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+### FluVac-only analysis
+
+To evaluate the influence of combining data from the FluVac cohort and URIV clinical trial, we repeated the overall and subtype-specific regression analyses using only FluVac observations. The same eligibility criteria and multiple-imputation procedure were applied, with study omitted as a covariate and other covariates included according to their estimability. Estimates and confidence intervals were very similar to those from the combined analyses, suggesting that inclusion of URIV observations did not materially influence the observed associations. The corresponding regression figures (@fig-reg-fluvac-overall and @fig-reg-fluvac-subtype) and full coefficient estimates (@tbl-regression-FZSD-fluvac-overall - @tbl-regression-FA-bvic-fluvac) are provided below.
+
+#### Overall
+
+```{r}
+#| label: fig-reg-fluvac-overall
+knitr::include_graphics(
+	here::here("results/figures/regression/sensitivity/fluvac-only/plot-regression-fluvac-overall.png")
+)
+```
+
+```{r}
+#| label: tbl-regression-FZSD-fluvac-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/overall/regression-fluvac-overall-Fluzone-SD.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-fluvac-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/overall/regression-fluvac-overall-Fluzone-HD.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-fluvac-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/overall/regression-fluvac-overall-FluMist.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-fluvac-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/overall/regression-fluvac-overall-Flucelvax.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-fluvac-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/overall/regression-fluvac-overall-FluBlok.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FA-fluvac-overall
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/overall/regression-fluvac-overall-FLUAD.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+#### Subtype-specific
+
+```{r}
+#| label: fig-reg-fluvac-subtype
+knitr::include_graphics(
+	here::here("results/figures/regression/sensitivity/fluvac-only/plot-regression-fluvac-subtype.png")
+)
+```
+
+```{r}
+#| label: tbl-regression-FZSD-H1N1-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-Fluzone-SD-H1N1.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-H1N1-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-Fluzone-HD-H1N1.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-H1N1-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-FluBlok-H1N1.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZSD-H3N2-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-Fluzone-SD-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-H3N2-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-Fluzone-HD-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-H3N2-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-FluMist-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-H3N2-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-Flucelvax-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-H3N2-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-FluBlok-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FA-H3N2-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-FLUAD-H3N2.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZSD-byam-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-Fluzone-SD-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-byam-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-Fluzone-HD-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-byam-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-FluMist-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-byam-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-Flucelvax-B-Yamagata.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZSD-bvic-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-Fluzone-SD-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FZHD-bvic-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-Fluzone-HD-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FM-bvic-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-FluMist-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FV-bvic-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-Flucelvax-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FB-bvic-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-FluBlok-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+```{r}
+#| label: tbl-regression-FA-bvic-fluvac
+
+readRDS(here::here("results/tables/regression/sensitivity/fluvac-only/subtype/regression-fluvac-subtype-FLUAD-B-Victoria.rds")) |>
+  fontsize(size = 10, part = "all") |>
+  fit_flextable_to_page()
+```
+
+\pagebreak
+
+# References
